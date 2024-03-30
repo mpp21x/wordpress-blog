@@ -1,0 +1,56 @@
+version: "3"
+
+services:
+  nginx:
+    depends_on:
+      - wordpress
+    image: nginx:1.15.12-alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - wordpress:/var/www/html
+      - ./nginx-conf:/etc/nginx/conf.d
+    networks:
+      - app-network
+  wordpress:
+    depends_on:
+      - mysql
+    image: wordpress:6.4-php8.2-fpm-alpine
+    container_name: wordpress
+    restart: always
+    env_file: secret.env
+    environment:
+      - WORDPRESS_DB_HOST=mysql:3306
+      - WORDPRESS_DB_USER=$MYSQL_USER
+      - WORDPRESS_DB_PASSWORD=$MYSQL_PASSWORD
+      - WORDPRESS_DB_NAME=$MYSQL_DATABASE
+    volumes:
+      - wordpress:/var/www/html
+    networks:
+      - app-network
+  mysql:
+    image: mysql:8.0
+    hostname: mysql
+    container_name: mysql
+    restart: always
+    env_file: secret.env
+    volumes:
+      - wp-mysql-data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: mysql -u${MYSQL_USER} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE} -e 'select 1;'
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - app-network
+
+volumes:
+  wordpress:
+  wp-mysql-data:
+
+networks:
+  app-network:
+    driver: bridge
